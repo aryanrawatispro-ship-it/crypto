@@ -1,0 +1,138 @@
+// Prisma Schema for TradeGPT
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  name          String?
+  riskTolerance String      @default("moderate") // low, moderate, high
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  conversations Conversation[]
+  portfolios    Portfolio[]
+  alerts        PriceAlert[]
+  trades        Trade[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           String       // user, assistant, system
+  content        String
+  metadata       Json?        // Store context like price data, indicators
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Portfolio {
+  id              String   @id @default(uuid())
+  userId          String
+  symbol          String   // BTC, ETH, TSLA, etc.
+  assetType       String   // crypto, stock, forex, commodity
+  quantity        Float
+  averageEntryPrice Float
+  currentPrice    Float?
+  totalValue      Float?
+  unrealizedPnL   Float?
+  unrealizedPnLPercent Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+  @@map("portfolios")
+}
+
+model PriceAlert {
+  id          String   @id @default(uuid())
+  userId      String
+  symbol      String
+  assetType   String
+  targetPrice Float
+  condition   String   // above, below, crosses
+  isActive    Boolean  @default(true)
+  isTriggered Boolean  @default(false)
+  triggeredAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("price_alerts")
+}
+
+model Trade {
+  id              String   @id @default(uuid())
+  userId          String
+  symbol          String
+  assetType       String
+  tradeType       String   // buy, sell
+  quantity        Float
+  entryPrice      Float
+  exitPrice       Float?
+  stopLoss        Float?
+  takeProfit      Float?
+  status          String   // open, closed
+  realizedPnL     Float?
+  realizedPnLPercent Float?
+  notes           String?
+  aiRecommendation Json?
+  entryDate       DateTime @default(now())
+  exitDate        DateTime?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trades")
+}
+
+model MarketData {
+  id              String   @id @default(uuid())
+  symbol          String   @unique
+  assetType       String
+  currentPrice    Float
+  change24h       Float?
+  changePercent24h Float?
+  volume24h       Float?
+  marketCap       Float?
+  high24h         Float?
+  low24h          Float?
+
+  // Technical Indicators
+  rsi             Float?
+  macd            Float?
+  macdSignal      Float?
+  ema20           Float?
+  ema50           Float?
+  ema200          Float?
+
+  lastUpdated     DateTime @updatedAt
+
+  @@map("market_data")
+}
